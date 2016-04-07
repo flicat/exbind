@@ -202,12 +202,8 @@ var Exbind = (function() {
                     that.initExbindFrame(ele);
                 }
 
-                if(ele.is('form')){
-                    ele.formMethod();
-                }
-
                 // 绑定所有控件
-                ele.find('[data-act], [data-toggle], form').each(function() {
+                ele.find('[data-act]').each(function() {
                     var node = $(this);
                     node.attr('data-act') && that.initExbindFrame(node);
                 });
@@ -217,24 +213,7 @@ var Exbind = (function() {
 
         init: function() {
             var that = this;
-            var timer = null;
-            var elements = [];
             that.initController();
-
-            /*
-            $('body').bind('DOMNodeInserted', function(e) {
-                var target = e.target;
-                if(!target.ExbindStamp){
-                    clearTimeout(timer);
-                    target.ExbindStamp = (new Date()).getTime() + '_' + parseInt(Math.random() * 1E8);
-                    elements.push(target);
-                    timer = setTimeout(function() {
-                        that.initController(elements);
-                        elements = [];
-                    }, 0);
-                }
-            });
-            */
 
             $('body').unbind('dom_node_inserted.frame').on('dom_node_inserted.frame', function(e, ele) {
                 $(ele).children().each(function() {
