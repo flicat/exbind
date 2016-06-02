@@ -1,259 +1,190 @@
 /*!
- * @作者: liyuelong1020@gmail.com
- * @日期: 2014-05-28
- * @备注: Exbind 框架
+ * @author liyuelong1020@gmail.com
+ * @date 2016/6/1
+ * @version 1.0.0
  */
 
-var Exbind = (function() {
+var ExBind = (function() {
 
-    /**
-     * 控制器对象
-     */
-    var Controller = function(element, param, act) {
-        this.element = element;     // DOM节点
-        this.param = param;         // 参数
-        this.act = act;             // 控件名
-        this.lock = {};             // 锁定流程
-        this.events = {};
+    // 判断是否是对象
+    var isObject = function (obj) {
+        return ({}).toString.call(obj) === "[object Object]"
     };
-    Controller.prototype = {
-        constructor: Controller,
+    // 判断是否是数组
+    var isArray = Array.isArray || function (obj) {
+            return ({}).toString.call(obj) === '[object Array]';
+        };
+    // 判断是否是字符串
+    var isString = function (obj) {
+        return ({}).toString.call(obj) === "[object String]"
+    };
+    // 判断是否是函数
+    var isFunction = function (obj) {
+        return ({}).toString.call(obj) === "[object Function]"
+    };
 
-        // 执行方法
-        execute: function(eventName) {
-            var that = this;
-            var methods = that.events[eventName];
-            var element = that.element;
-            var flag = 0;
+    // 获取节点方法
+    var getAct = function(str) {
+        var actArr = String(str || '').split(',');
+        return $.map(actArr, function(item) {
+            return $.trim(item);
+        });
+    };
 
-            // 按控件定义顺序获取控件方法
-            var getMethod = function() {
-                var method = null;
-                while(!method && flag < that.act.length) {
-                    method = methods[that.act[flag++]];
-                }
-                if(eventName == 'load' && method){
-                    delete methods[that.act[flag - 1]];
-                }
-                return method;
+    // 获取节点参数
+    var getParam = function(str) {
+        var param = {};
+        $.each((str || '').split('&'), function(i, paramStr) {
+            var index = paramStr.indexOf('=', 0);
+            if(index > 0 && index < paramStr.length - 1){
+                var name = $.trim(paramStr.substring(0, index));
+                param[name] = $.trim(paramStr.substring(index + 1, paramStr.length));
+            }
+        });
+        return param;
+    };
+
+    // HTML节点控件对象
+    var Act = function(node, actArr, param) {
+        this.node = $(node);                               // 绑定控件的节点
+        this.actArr = actArr;                           // 控件数组
+        this.param = isObject(param) ? param : null;    // 节点参数
+        this.isLock = false;                            // 是否锁定
+    };
+    Act.prototype.bind = function(event, eventMap) {
+        var that = this;
+
+        // 执行事件链
+        var execute = function(e) {
+            var index = 0;
+
+            var data = {
+                // 停止执行事件链
+                stop: function() {
+                    that.isLock = true;
+                },
+                // 继续执行事件链
+                next: function() {
+                    that.isLock = false;
+                    next();
+                },
+                param: that.param
             };
 
-            // 执行控件方法链
-            var method = getMethod();
-            var execute = function() {
-                var isStop = false;
-                that.lock[eventName] = true;
+            // 执行下一个事件
+            var next = function() {
+                while(!eventMap[that.actArr[index]] && index < that.actArr.length) {
+                    index++;
+                }
 
-                while(method && !isStop){
-                    try{
-                        method.handler.call(that.element, {
-                            param: that.param,
-                            stop: function(lock) {
-                                isStop = true;
-                                that.lock[eventName] = !!lock;
-                            },
-                            next: function() {
-                                if(isStop){
-                                    isStop = false;
-                                    execute();
-                                    that.lock[eventName] = false;
-                                }
-                            }
-                        });
-                    } catch(e) {
-                        console.error(e);
+                if(index < that.actArr.length){
+                    eventMap[that.actArr[index]].call(that.node, data, e);
+
+                    if(event === 'load'){
+                        that.actArr.splice(index, 1);
+                    } else {
+                        index++;
                     }
-                    method = getMethod();
-                }
 
-                !isStop && (that.lock[eventName] = !!method);
+                    if(!that.isLock){
+                        next();
+                    }
+                }
             };
 
-            // 如果节点是表单则获取表单值
-            if(element.val()){
-                that.param.param = {};
-                that.param.param[element.attr('name')] = element.val();
+            if(!that.isLock){
+                next();
             }
+        };
 
-            // 执行方法链
-            method && !that.lock[eventName] && execute();
-        },
-
-        // 初始化事件处理
-        initAct: function(method) {
-            var that = this;
-            var element = that.element;
-            // 绑定交互事件
-            if($.inArray(method.name, that.act) > -1){
-                if(!that.events[method.event]){
-                    var eventName = element.is('select') && method.event != 'load' ? 'change' : method.event;
-                    that.events[method.event] = {};
-                    element.unbind(eventName + '.data-act').bind(eventName + '.data-act', function(e) {
-                        if(!(e.eventPhase == 3 && $(e.target).attr('data-act'))){
-                            that.execute(method.event);
-                        }
-                    });
-                }
-                // 保存控件方法
-                that.events[method.event][method.name] = method;
-                // 触发初始化控件方法
-                method.event == 'load' && element.triggerHandler('load.data-act');
-            }
+        if(event === 'load'){
+            // 如果是load事件则立刻执行
+            setTimeout(function() {
+                execute();
+            }, 0);
+        } else if(!that.event){
+            // 避免重复绑定
+            that.event = true;
+            that.node.on(event, execute);
         }
     };
 
-    /**
-     * 框架对象
-     */
-    var ExbindFrame = function() {
-        this.methods = {};          // 方法
-        this.controllers = {};      // 控件
-        this.langTab = [];          // 多语言切换选项卡
-        this.init();
+    //
+    var ExBindFrame = function () {
+        this.actMap = {};            // 控件对应NODE节点字典
+        this.eventMap = {};          // 事件对应控件回调字典
+        this.scan();
     };
-    ExbindFrame.prototype = {
-        constructor: ExbindFrame,
-
-        // 获取事件名称数组
-        getAct: function(str) {
-            return String(str || '').split(',');
-        },
-
-        // 获取参数
-        getParam: function(str) {
-            var param = {};
-            var paramArr = String(str || '').split('&');
-            $.each(paramArr, function(i, item) {
-                var index = item.indexOf('=', 0);
-                if(index > 0){
-                    var name = item.substring(0, index).toLowerCase();
-                    param[name] = item.substring(index + 1, item.length);
-                }
-            });
-            return param;
-        },
-
-        // 注册事件
-        registerAct: function(name, event, handler) {
-            var that = this;
-            var method = {
-                name:name,                  // 控件名称
-                event: event,               // 控件触发事件
-                handler: handler            // 控件方法
-            };
-            that.methods[name + '_' + event] = method;
-
-            // 将事件注册到控件
-            $.each(that.controllers, function(i, controller) {
-                controller.initAct(method);
-            });
-        },
+    ExBindFrame.prototype = {
+        constructor: ExBindFrame,
 
         // 注册控件
-        registerController: function(element, params, acts) {
+        register: function(actName, event, call) {
             var that = this;
-            var sid = (new Date()).getTime() + '_' + parseInt(Math.random() * 1E8);
-            var controller = new Controller(element, params, acts);
-            element.attr('data-sid', sid);
-            that.controllers[sid] = controller;
-
-            // 给控件注册所有事件
-            $.each(that.methods, function(i, method) {
-                controller.initAct(method);
-            });
-        },
-
-        // 触发指定节点控件
-        triggerAct: function(sid, name, event) {
-            var that = this;
-            var method = that.methods[name + '_' + event];
-            var controller = that.controllers[sid];
-
-            if(method && controller && !controller.lock[event]){
-                method.handler.call(controller.element, {
-                    param: controller.param,
-                    stop: function() {},
-                    next: function() {}
-                });
-            }
-        },
-
-        // 初始化 Exbind frame
-        initExbindFrame: function(element) {
-            var that = this;
-            var sid = element.attr('data-sid');
-
-            if(!sid || !that.controllers[sid]){
-                var params = that.getParam(element.attr('data-param'));
-                var acts = that.getAct(element.attr('data-act'));
-                that.registerController(element, params, acts);
-            }
-        },
-
-        // 查找页面控件
-        initController: function(element) {
-            var that = this;
-            element = element || 'body';
-
-            $(element).each(function() {
-                var ele = $(this);
-
-                if(ele.is('[data-act]')){
-                    that.initExbindFrame(ele);
+            if(isString(actName) && isString(event) && isFunction(call)){
+                if(!that.eventMap[event]){
+                    that.eventMap[event] = {};
                 }
-
-                // 绑定所有控件
-                ele.find('[data-act]').each(function() {
-                    var node = $(this);
-                    node.attr('data-act') && that.initExbindFrame(node);
-                });
-
-            });
+                // 将控件回调方法存根据事件存储在字典
+                if(!that.eventMap[event][actName]){
+                    that.eventMap[event][actName] = call;
+                    // 绑定事件
+                    if(that.actMap[actName] && that.actMap[actName].length){
+                        $.each(that.actMap[actName], function(i, nodeObj) {
+                            nodeObj.bind(event, that.eventMap[event]);
+                        });
+                    }
+                }
+            }
         },
 
-        init: function() {
+        // 注册节点
+        registerNode: function(node, actArr, param) {
             var that = this;
-            that.initController();
 
-            $('body').unbind('dom_node_inserted.frame').on('dom_node_inserted.frame', function(e, ele) {
-                $(ele).children().each(function() {
-                    that.initController(this);
+            if(isArray(actArr)){
+                // 创建控件对象
+                var nodeObj = new Act(node, actArr, param);
+
+                // 将控件存储在控件字典
+                $.each(actArr, function(i, act) {
+                    if(isString(act)){
+                        if(!that.actMap[act]){
+                            that.actMap[act] = [];
+                        }
+                        that.actMap[act].push(nodeObj);
+
+                        // 绑定事件
+                        $.each(that.eventMap, function(event, eventMap) {
+                            if(eventMap[act]){
+                                nodeObj.bind(event, eventMap);
+                            }
+                        });
+                    }
                 });
+            }
+        },
+
+        // 扫描节点
+        scan: function(elem) {
+            var that = this;
+
+            // 遍历节点
+            var nodes = $(elem || document).find('[data-act]');
+
+            // 获取节点绑定的控件名称和参数
+            nodes.each(function() {
+                var node = $(this);
+                // 控件名称数组
+                var actArr = getAct(node.attr('data-act') || '');
+                // 参数
+                var param = getParam(node.attr('data-param') || '');
+
+                that.registerNode(node, actArr, param);
+                node.removeAttr('data-act data-param');
             });
         }
     };
 
-    var Frame = new ExbindFrame();
-
-    // 初始化控件
-    $.fn.ExbindInit = function() {
-        return $(this).each(function() {
-            Frame.initController($(this));
-        });
-    };
-
-    // js 手动注册控件
-    $.fn.define = function(params, acts) {
-        return $(this).each(function() {
-            var element = $(this);
-            Frame.registerController(element, params, acts);
-        });
-    };
-
-    // 触发节点控件
-    $.fn.act = function(name, event) {
-        return $(this).each(function() {
-            var sid = $(this).attr('data-sid');
-            sid && Frame.triggerAct(sid, name, event);
-        });
-    };
-
-    // 自定义控件
-    $.extend({
-        register: function(name, type, handler) {
-            Frame.registerAct(name, type, handler);
-        }
-    });
-
-    return Frame;
+    return new ExBindFrame();
 })();
