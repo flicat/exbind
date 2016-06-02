@@ -1,28 +1,38 @@
 事件通用方法
 =================
 
-定义一个控件
+注册一个控件
 ---------------
 ```
-$.register(@name, @event, @handler);
+ExBind.register(name, event, handler);
 ```
-> 定义一个click事件控件
+> 注册一个 my-click 控件
 ```
-$.register('my-click', 'click', function(e) {
+ExBind.register('my-click', 'click', function(e) {
     var param = e.param;
 });
 ```
-定义一个load事件控件
+> 注册一个 my-load 控件
 ```
-$.register('my-load', 'load', function(e) {
+ExBind.register('my-load', 'load', function(e) {
     var param = e.param;
 });
 ```
 
-绑定控件
+手动绑定控件到节点
 ---------------
 ```
-<button data-act="@nameString" data-param="@paramStr=param">按钮</button>
+ExBind.registerNode(Node, nameArr, param);
+```
+> 绑定 my-click 与 my-load 控件
+```
+ExBind.registerNode(document.getElementById('submit'), ['my-click', 'my-load'], {value: 'test'});
+```
+
+HTML绑定控件
+---------------
+```
+<button data-act="nameString" data-param="paramStr=param">按钮</button>
 ```
 
 > 绑定一个控件
@@ -36,7 +46,9 @@ $.register('my-load', 'load', function(e) {
        
 参数详解
 ---------------
+>- Node [HTMLElement] HTML节点
 >- name [String] 控件名称
+>- nameArr [Array] 控件数组
 >- nameString [String] 控件名称，多个控件名用空格隔开，根据排序执行控件事件
 >- event  [String] 控件触发事件
 >- handler [Function] 控件触发事件回调函数
