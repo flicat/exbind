@@ -41,7 +41,7 @@ HTML绑定控件
 ```
 绑定多个控件
 ```
-<button data-act="my-click my-load" data-param="name=test&value=1">按钮</button>
+<button data-act="my-click,my-load" data-param="name=test&value=1">按钮</button>
 ```
        
 参数详解
