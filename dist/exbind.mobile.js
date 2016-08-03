@@ -122,7 +122,7 @@ var ExBind = (function() {
     var ExBindFrame = function () {
         this.actMap = {};            // 控件对应NODE节点字典
         this.eventMap = {};          // 事件对应控件回调字典
-        this.scan();
+        this.init();
     };
     ExBindFrame.prototype = {
         constructor: ExBindFrame,
@@ -150,6 +150,10 @@ var ExBind = (function() {
         // 注册节点
         registerNode: function(node, actArr, param) {
             var that = this;
+            // 控件名称数组
+            actArr = actArr || getAct(node.getAttribute('data-act') || '');
+            // 参数
+            param = param || getParam(node.getAttribute('data-param') || '');
 
             if(isArray(actArr)){
                 // 创建控件对象
@@ -172,28 +176,79 @@ var ExBind = (function() {
                     }
                 });
             }
+
+            node.removeAttribute('data-act');
+            node.removeAttribute('data-param');
         },
 
         // 扫描节点
         scan: function(elem) {
             var that = this;
+            elem = elem || document.body;
 
-            // 遍历节点
-            var nodes = (elem || document).querySelectorAll('[data-act]');
+            if(elem.nodeType === 1) {
+                // 遍历节点
+                var nodes = elem.querySelectorAll('[data-act]');
 
-            // 获取节点绑定的控件名称和参数
-            [].slice.call(nodes).forEach(function(node) {
-                // 控件名称数组
-                var actArr = getAct(node.getAttribute('data-act') || '');
-                // 参数
-                var param = getParam(node.getAttribute('data-param') || '');
+                if(elem.hasAttribute('data-act')){
+                    that.registerNode(elem);
+                }
+                // 获取节点绑定的控件名称和参数
+                [].slice.call(nodes).forEach(function(node) {
+                    that.registerNode(node);
+                });
+            }
+        },
 
-                that.registerNode(node, actArr, param);
+        // 初始化事件
+        init: function() {
+            var that = this;
+            that.scan();
 
-                node.removeAttribute('data-act');
-                node.removeAttribute('data-param');
+            // 监听HTML节点变动
+            //var MutationObserver = window.MutationObserver
+            //    || window.WebKitMutationObserver
+            //    || window.MozMutationObserver;
+            //var observer = new MutationObserver(function(mutations) {
+            //    (function(mutations) {
+            //        setTimeout(function() {
+            //            mutations.forEach(function(mutation) {
+            //                if(mutation.addedNodes && mutation.addedNodes.length) {
+            //                    for(var i = 0, len = mutation.addedNodes.length; i < len; i++) {
+            //                        that.scan(mutation.addedNodes[i]);
+            //                    }
+            //                }
+            //            });
+            //        }, 0);
+            //    })(mutations);
+            //});
+            //observer.observe(document.body, {
+            //    'childList': true,
+            //    'characterData': true,
+            //    'subtree':true
+            //});
+
+            var nodeArr = [], timer = null;
+            document.addEventListener('DOMNodeInserted',function(e){
+                nodeArr.push(e.target);
+                clearTimeout(timer);
+                timer = setTimeout(function() {
+                    var newArr = [];
+
+                    nodeArr.forEach(function(node) {
+                        if(node.nodeType == 1 && newArr.indexOf(node) < 0){
+                            newArr.push(node);
+                        }
+                    });
+                    nodeArr.length = 0;
+
+                    newArr.forEach(function(node) {
+                        that.scan(node);
+                    });
+                }, 100);
             });
         }
+
     };
 
     return new ExBindFrame();

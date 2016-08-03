@@ -113,7 +113,7 @@ var ExBind = (function() {
     var ExBindFrame = function () {
         this.actMap = {};            // 控件对应NODE节点字典
         this.eventMap = {};          // 事件对应控件回调字典
-        this.scan();
+        this.init();
     };
     ExBindFrame.prototype = {
         constructor: ExBindFrame,
@@ -141,6 +141,12 @@ var ExBind = (function() {
         // 注册节点
         registerNode: function(node, actArr, param) {
             var that = this;
+            node = $(node);
+
+            // 控件名称数组
+            actArr = actArr || getAct(node.attr('data-act') || '');
+            // 参数
+            param = param || getParam(node.attr('data-param') || '');
 
             if(isArray(actArr)){
                 // 创建控件对象
@@ -163,27 +169,36 @@ var ExBind = (function() {
                     }
                 });
             }
+
+            node.removeAttr('data-act');
+            node.removeAttr('data-param');
         },
 
         // 扫描节点
         scan: function(elem) {
             var that = this;
+            elem = $(elem || document.body);
 
-            // 遍历节点
-            var nodes = $(elem || document).find('[data-act]');
+            if(elem.get(0).nodeType === 1) {
+                // 遍历节点
+                var nodes = elem.find('[data-act]');
 
-            // 获取节点绑定的控件名称和参数
-            nodes.each(function() {
-                var node = $(this);
-                // 控件名称数组
-                var actArr = getAct(node.attr('data-act') || '');
-                // 参数
-                var param = getParam(node.attr('data-param') || '');
+                if(elem.is('[data-act]')){
+                    that.registerNode(elem);
+                }
+                // 获取节点绑定的控件名称和参数
+                nodes.each(function() {
+                    that.registerNode($(this));
+                });
+            }
+        },
 
-                that.registerNode(node, actArr, param);
-                node.removeAttr('data-act data-param');
-            });
+        // 初始化事件
+        init: function() {
+            var that = this;
+            that.scan();
         }
+
     };
 
     return new ExBindFrame();
